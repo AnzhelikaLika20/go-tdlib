@@ -50,6 +50,12 @@ type Client struct {
 	waiters      map[string]chan UpdateMsg
 	receiverLock *sync.Mutex
 	waitersLock  *sync.RWMutex
+
+	// recvStop is closed from DestroyInstance so the background Receive loop exits
+	// before td_json_client_destroy;
+	recvStop    chan struct{}
+	recvWg      sync.WaitGroup
+	destroyOnce sync.Once
 }
 
 // Config holds tdlibParameters
@@ -85,11 +91,20 @@ func NewClient(config Config) *Client {
 	client.waitersLock = &sync.RWMutex{}
 	client.Config = config
 	client.waiters = make(map[string]chan UpdateMsg)
+	client.recvStop = make(chan struct{})
 
+	client.recvWg.Add(1)
 	go func() {
+		defer client.recvWg.Done()
+		const recvTimeoutSec = 0.5
 		for {
-			// get update
-			updateBytes := client.Receive(10)
+			if client.recvLoopStopped() {
+				return
+			}
+			updateBytes := client.Receive(recvTimeoutSec)
+			if client.recvLoopStopped() {
+				return
+			}
 			var updateData UpdateData
 			json.Unmarshal(updateBytes, &updateData)
 
@@ -141,6 +156,16 @@ func NewClient(config Config) *Client {
 	return &client
 }
 
+// recvLoopStopped reports whether DestroyInstance has closed recvStop.
+func (client *Client) recvLoopStopped() bool {
+	select {
+	case <-client.recvStop:
+		return true
+	default:
+		return false
+	}
+}
+
 // GetRawUpdatesChannel creates a general channel that fetches every update comming from tdlib
 func (client *Client) GetRawUpdatesChannel(capacity int) chan UpdateMsg {
 	client.rawUpdates = make(chan UpdateMsg, capacity)
@@ -165,7 +190,16 @@ func (client *Client) AddEventReceiver(msgInstance TdMessage, filterFunc EventFi
 // DestroyInstance Destroys the TDLib client instance.
 // After this is called the client instance shouldn't be used anymore.
 func (client *Client) DestroyInstance() {
-	C.td_json_client_destroy(client.Client)
+	client.destroyOnce.Do(func() {
+		if client.recvStop != nil {
+			close(client.recvStop)
+			client.recvWg.Wait()
+		}
+		if client.Client != nil {
+			C.td_json_client_destroy(client.Client)
+			client.Client = nil
+		}
+	})
 }
 
 // Send Sends request to the TDLib client.
