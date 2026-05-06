@@ -9339,7 +9339,7 @@ func (client *Client) AddProxy() (*Proxy, error) {
 		"@type":  "addProxy",
 		"enable": true,
 		"proxy": UpdateData{
-			"server": "127.0.0.1",
+			"server": "host.docker.internal",
 			"port":   1080,
 			"@type":  "proxy",
 			"type": UpdateData{
