@@ -9334,17 +9334,18 @@ func (client *Client) SaveApplicationLogEvent(typeParam string, chatID int64, da
 }
 
 // AddProxy Adds a proxy server for network requests. Can be called before authorization
-func (client *Client) AddProxy(server string, password string) (*Proxy, error) {
+func (client *Client) AddProxy() (*Proxy, error) {
 	result, err := client.SendAndCatch(UpdateData{
 		"@type":  "addProxy",
 		"enable": true,
 		"proxy": UpdateData{
-			"server": server,
-			"port":   443,
+			"server": "127.0.0.1",
+			"port":   1080,
 			"@type":  "proxy",
 			"type": UpdateData{
-				"@type": "proxyTypeSocks5",
-				"password": password,
+				"@type":    "proxyTypeSocks5",
+				"password": "",
+				"username": "",
 			},
 		},
 	})
