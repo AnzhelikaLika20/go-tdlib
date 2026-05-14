@@ -9334,13 +9334,13 @@ func (client *Client) SaveApplicationLogEvent(typeParam string, chatID int64, da
 }
 
 // AddProxy Adds a proxy server for network requests. Can be called before authorization
-func (client *Client) AddProxy() (*Proxy, error) {
+func (client *Client) AddProxy(server string, port int) (*Proxy, error) {
 	result, err := client.SendAndCatch(UpdateData{
 		"@type":  "addProxy",
 		"enable": true,
 		"proxy": UpdateData{
-			"server": "host.docker.internal",
-			"port":   1080,
+			"server": server,
+			"port":   port,
 			"@type":  "proxy",
 			"type": UpdateData{
 				"@type":    "proxyTypeSocks5",
